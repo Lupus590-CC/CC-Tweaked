@@ -813,6 +813,31 @@ function fs.isDriveRoot(sPath)
     return fs.getDir(sPath) == ".." or fs.getDrive(sPath) ~= fs.getDrive(fs.getDir(sPath))
 end
 
+local bFsRunning = false
+function fs.run()
+    if bFsRunning then
+        error("fs is already running", 2)
+    end
+    bFsRunning = true
+
+    while bFsRunning do
+        local sEvent, p1, p2, p3, p4 = os.pullEventRaw()
+        if sEvent == "disk" then
+            -- A disk was inserted, mount it
+            local sSide = p1
+            local diskFS = peripheral.call(sSide, "getFS")
+            fs.mount(diskFS, "disk")
+
+        elseif sEvent == "disk_eject" then
+            -- A disk was ejected, unmount it
+            local sSide = p1
+            local diskFS = peripheral.call(sSide, "getFS")
+            fs.unmount(diskFS)
+
+        end
+    end
+end
+
 -- Load APIs
 local bAPIError = false
 local tApis = fs.list("rom/apis")
@@ -1019,7 +1044,8 @@ local ok, err = pcall(parallel.waitForAny,
         os.run({}, sShell)
         os.run({}, "rom/programs/shutdown.lua")
     end,
-    rednet.run
+    rednet.run,
+    fs.run
 )
 
 -- If the shell errored, let the user read it.
